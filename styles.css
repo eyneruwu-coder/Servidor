@@ -1,0 +1,217 @@
+/* ===== ESTILOS GENERALES ===== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+}
+
+:root {
+    --primario: #2563eb;
+    --secundario: #10b981;
+    --fondo: #f0f4f8;
+    --tarjeta: #ffffff;
+    --texto: #1f2937;
+    --sombra: 0 4px 20px rgba(0,0,0,0.1);
+    --borde: #e5e7eb;
+}
+
+body {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+    color: var(--texto);
+}
+
+.contenedor {
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+header {
+    text-align: center;
+    color: white;
+    margin-bottom: 25px;
+}
+
+header h1 {
+    font-size: 1.8rem;
+    margin-bottom: 8px;
+}
+
+.subtitulo {
+    opacity: 0.9;
+    font-size: 1rem;
+}
+
+/* ===== CAJA DEL ESCÁNER ===== */
+.caja-escaner {
+    background: var(--tarjeta);
+    border-radius: 16px;
+    padding: 15px;
+    box-shadow: var(--sombra);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+#camara {
+    width: 100%;
+    height: 350px;
+    object-fit: cover;
+    border-radius: 10px;
+    background: #000;
+}
+
+#lienzo {
+    display: none;
+}
+
+/* Marco guía visual */
+.marco-guia {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 220px;
+    height: 220px;
+    pointer-events: none;
+}
+
+.esquina {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    border: 4px solid var(--secundario);
+}
+
+.sup-izq { top: 0; left: 0; border-right: none; border-bottom: none; border-radius: 10px 0 0 0; }
+.sup-der { top: 0; right: 0; border-left: none; border-bottom: none; border-radius: 0 10px 0 0; }
+.inf-izq { bottom: 0; left: 0; border-right: none; border-top: none; border-radius: 0 0 0 10px; }
+.inf-der { bottom: 0; right: 0; border-left: none; border-top: none; border-radius: 0 0 10px 0; }
+
+.estado {
+    position: absolute;
+    bottom: 25px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+}
+
+/* ===== CONTROLES ===== */
+.controles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.btn:active {
+    transform: scale(0.97);
+}
+
+.btn-primario {
+    background: var(--primario);
+    color: white;
+}
+
+.btn-primario:hover {
+    background: #1d4ed8;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+.btn-secundario {
+    background: #ef4444;
+    color: white;
+}
+
+.btn-secundario:hover {
+    background: #dc2626;
+}
+
+.btn-archivo {
+    background: var(--secundario);
+    color: white;
+    display: inline-block;
+    text-align: center;
+}
+
+.btn-archivo:hover {
+    background: #059669;
+}
+
+/* ===== RESULTADO ===== */
+.resultado {
+    background: var(--tarjeta);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: var(--sombra);
+    animation: aparecer 0.3s ease-out;
+}
+
+@keyframes aparecer {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.resultado h3 {
+    margin-bottom: 10px;
+    color: var(--secundario);app.js
+}
+
+.texto-resultado {
+    background: var(--fondo);
+    padding: 12px;
+    border-radius: 8px;
+    word-break: break-all;
+    font-family: monospace;
+    font-size: 0.9rem;
+    border-left: 4px solid var(--primario);
+}
+
+/* ===== CARGA DE IMAGEN ===== */
+.carga-imagen {
+    background: var(--tarjeta);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: var(--sombra);
+}
+
+.carga-imagen p {
+    margin-bottom: 12px;
+    color: #6b7280;
+}
+
+#entradaImagen {
+    display: none;
+}
+
+/* ===== UTILIDADES ===== */
+.oculto {
+    display: none !important;
+}
+
+/* ===== RESPONSIVO ===== */
+@media (max-width: 480px) {
+    header h1 { font-size: 1.5rem; }
+    #camara { height: 280px; }
+    .marco-guia { width: 180px; height: 180px; }
+    .btn { padding: 10px 18px; font-size: 0.9rem; }
+}

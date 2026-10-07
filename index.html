@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lector QR</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="contenedor">
+        <header>
+            <h1>📷 Lector QR</h1>
+            <p class="subtitulo">Escanea códigos QR con tu cámara</p>
+        </header>
+
+        <!-- Área de escaneo -->
+        <div class="caja-escaner">
+            <video id="camara" autoplay playsinline></video>
+            <canvas id="lienzo" class="oculto"></canvas>
+            <div class="marco-guia" id="marcoGuia">
+                <div class="esquina sup-izq"></div>
+                <div class="esquina sup-der"></div>
+                <div class="esquina inf-izq"></div>
+                <div class="esquina inf-der"></div>
+            </div>
+            <div class="estado" id="estado">Iniciando cámara...</div>
+        </div>
+
+        <!-- Controles -->
+        <div class="controles">
+            <button id="btnIniciar" class="btn btn-primario">▶ Iniciar Escaneo</button>
+            <button id="btnDetener" class="btn btn-secundario oculto">⏹ Detener</button>
+            <button id="btnCopiar" class="btn oculto">📋 Copiar</button>
+            <button id="btnAbrir" class="btn oculto">🔗 Abrir Enlace</button>
+        </div>
+
+        <!-- Resultado -->
+        <div class="resultado oculto" id="cajaResultado">
+            <h3>✅ Resultado:</h3>
+            <div class="texto-resultado" id="textoResultado"></div>
+        </div>
+
+        <!-- Área carga imagen -->
+        <div class="carga-imagen">
+            <p>O selecciona una imagen:</p>
+            <input type="file" id="entradaImagen" accept="image/*">
+            <label for="entradaImagen" class="btn btn-archivo">📁 Subir Imagen</label>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // Registro del Service Worker para funcionar sin internet
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registro => {
+                        console.log('✅ Service Worker registrado:', registro.scope);
+                    })
+                    .catch(error => {
+                        console.log('⚠️ Error al registrar Service Worker:', error);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
