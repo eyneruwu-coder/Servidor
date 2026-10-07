@@ -1,231 +1,291 @@
-// ==============================================
-// LECTOR QR - LÓGICA PRINCIPAL
-// Todo el procesamiento se realiza localmente
-// Sin dependencias externas
-// ==============================================
+// ======================================================
+// SERVIDOR ZEPLI — Control de Inicio Manual + Avisos
+// ======================================================
 
-// Elementos del DOM
-const video = document.getElementById('camara');
-const lienzo = document.getElementById('lienzo');
-const ctx = lienzo.getContext('2d');
-const estado = document.getElementById('estado');
-const btnIniciar = document.getElementById('btnIniciar');
-const btnDetener = document.getElementById('btnDetener');
-const btnCopiar = document.getElementById('btnCopiar');
-const btnAbrir = document.getElementById('btnAbrir');
-const cajaResultado = document.getElementById('cajaResultado');
-const textoResultado = document.getElementById('textoResultado');
-const entradaImagen = document.getElementById('entradaImagen');
+// CONFIGURACIÓN
+const CANTIDAD_CANALES = 20;
+const TIEMPO_SINCRONIZACION = 3000;
 
-let transmisionCamara = null;
-let escaneoActivo = false;
-let idIntervalo = null;
-let ultimoResultado = '';
+// ESTRUCTURA DE DATOS
+let estado = {
+    idPrincipal: null,
+    conectado: false,
+    canales: []
+    // Cada canal:
+    // { idCanal, archivos: [], horaInicio, enEmision, indiceAviso }
+};
 
-// ==============================================
-// ALGORITMO DE DECODIFICACIÓN QR (implementación básica)
-// Basado en análisis de patrones de posición
-// ==============================================
-
-function decodificarQR(imagenData, ancho, alto) {
-    // NOTA: Esta es una implementación educativa simplificada.
-    // Para uso profesional, se recomienda integrar bibliotecas como jsQR o qrcode-reader.
-    // Sin embargo, esta versión funciona completamente sin dependencias externas.
+// ======================================================
+// INICIO Y CARGA PERMANENTE
+// ======================================================
+function inicializar() {
+    cargarDatosGuardados();
     
-    // Buscamos los 3 marcadores de esquina característicos de QR
-    const tamMuestra = Math.min(ancho, alto);
-    const tamBloque = Math.floor(tamMuestra / 25);
-    
-    // Función auxiliar para verificar patrón de marcador (gráfico 7:5:3:1:3:5:7 píxeles)
-    function esMarcador(x, y) {
-        if (x < 0 || y < 0 || x + 7*tamBloque >= ancho || y + 7*tamBloque >= alto) return false;
-        
-        let valido = true;
-        // Patrón horizontal
-        for (let dy = 0; dy < 7; dy++) {
-            const filaValida = 
-                obtenerColor(x + 0*tamBloque, y + dy*tamBloque) === 0 &&
-                obtenerColor(x + 1*tamBloque, y + dy*tamBloque) === 0 &&
-                obtenerColor(x + 2*tamBloque, y + dy*tamBloque) === 1 &&
-                obtenerColor(x + 3*tamBloque, y + dy*tamBloque) === 0 &&
-                obtenerColor(x + 4*tamBloque, y + dy*tamBloque) === 1 &&
-                obtenerColor(x + 5*tamBloque, y + dy*tamBloque) === 0 &&
-                obtenerColor(x + 6*tamBloque, y + dy*tamBloque) === 0;
-            if (!filaValida) valido = false;
+    if (estado.canales.length === 0) {
+        for (let i = 0; i < CANTIDAD_CANALES; i++) {
+            estado.canales.push({
+                idCanal: generarIdCanal(i + 1),
+                archivos: [],
+                horaInicio: null,
+                enEmision: false,
+                indiceAviso: null
+            });
         }
-        return valido;
+        guardarDatos();
     }
-    
-    function obtenerColor(x, y) {
-        const idx = (Math.floor(y) * ancho + Math.floor(x)) * 4;
-        const gris = (imagenData[idx] + imagenData[idx+1] + imagenData[idx+2]) / 3;
-        return gris < 128 ? 0 : 1; // 0 = negro, 1 = blanco
+
+    renderizarTodo();
+    setInterval(renderizarTodo, TIEMPO_SINCRONIZACION);
+}
+
+function generarIdCanal(numero) {
+    return `ZEPLI-CANAL-${String(numero).padStart(3, '0')}`;
+}
+
+function cargarDatosGuardados() {
+    const guardado = localStorage.getItem('zepli_servidor_datos');
+    if (guardado) estado = JSON.parse(guardado);
+}
+
+function guardarDatos() {
+    localStorage.setItem('zepli_servidor_datos', JSON.stringify(estado));
+    compartirEnRed();
+}
+
+// ======================================================
+// CONEXIÓN PRINCIPAL
+// ======================================================
+const idGeneral = document.getElementById('idGeneral');
+const btnConectarGeneral = document.getElementById('btnConectarGeneral');
+const estadoGeneral = document.getElementById('estadoGeneral');
+
+btnConectarGeneral.addEventListener('click', () => {
+    const id = idGeneral.value.trim().toUpperCase();
+    if (!id) {
+        estadoGeneral.textContent = 'Escribe tu identificador';
+        estadoGeneral.className = 'estado desconectado';
+        return;
     }
-    
-    // Búsqueda de marcadores en cuadrícula
-    const marcadores = [];
-    const paso = Math.max(1, Math.floor(tamBloque / 2));
-    for (let y = 0; y < alto - 7*tamBloque; y += paso) {
-        for (let x = 0; x < ancho - 7*tamBloque; x += paso) {
-            if (esMarcador(x, y)) {
-                marcadores.push({x: x + 3.5*tamBloque, y: y + 3.5*tamBloque});
-                x += 7*tamBloque; // Saltar área
+    estado.idPrincipal = id;
+    estado.conectado = true;
+    estadoGeneral.textContent = `✅ Conectado — ID: ${id}`;
+    estadoGeneral.className = 'estado conectado';
+    guardarDatos();
+});
+
+// ======================================================
+// RENDERIZAR TODOS LOS CANALES
+// ======================================================
+const listaCanales = document.getElementById('listaCanales');
+
+function renderizarTodo() {
+    listaCanales.innerHTML = '';
+    estado.canales.forEach((canal, indice) => {
+        const tarjeta = crearTarjetaCanal(canal, indice);
+        listaCanales.appendChild(tarjeta);
+    });
+}
+
+function crearTarjetaCanal(canal, indice) {
+    const div = document.createElement('div');
+    div.className = 'tarjeta-canal';
+    div.dataset.indice = indice;
+
+    // Estado de emisión con minuto
+    let estadoEmisionHTML = '';
+    if (canal.enEmision && canal.horaInicio) {
+        const ahora = new Date();
+        const inicio = new Date(canal.horaInicio);
+        const transcurridoMs = ahora - inicio;
+        const minutos = Math.floor(transcurridoMs / 60000);
+        const segundos = Math.floor((transcurridoMs % 60000) / 1000);
+        estadoEmisionHTML = `
+            <div class="estado-emision">
+                <div class="estado-en-vivo">
+                    📡 EN EMISIÓN — Minuto ${minutos}:${String(segundos).padStart(2, '0')}
+                </div>
+            </div>
+        `;
+    } else {
+        estadoEmisionHTML = `
+            <div class="estado-emision">
+                <div class="estado-preparando">
+                    ⏸️ PREPARANDO — Listo para iniciar
+                </div>
+            </div>
+        `;
+    }
+
+    // Lista de archivos
+    let listaArchivosHTML = '';
+    if (canal.archivos.length === 0) {
+        listaArchivosHTML = '<p style="color:#666; font-size:14px;">Sin archivos subidos</p>';
+    } else {
+        listaArchivosHTML = canal.archivos.map((archivo, i) => `
+            <div class="archivo-item ${canal.indiceAviso === i ? 'aviso' : ''}">
+                <div class="archivo-info">
+                    <span class="archivo-nombre">${archivo.nombre}</span>
+                    <span class="archivo-tamano">${archivo.tamano} ${canal.indiceAviso === i ? ' ⭐ AVISO' : ''}</span>
+                </div>
+                <div style="display:flex; gap:4px; align-items:center;">
+                    ${canal.indiceAviso !== i ? `<button class="btn-marcar-aviso" data-idx="${i}" title="Marcar como aviso">☆</button>` : ''}
+                    <button class="btn-eliminar" data-archivo="${i}" title="Eliminar">×</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // Botón de control
+    const botonControl = canal.enEmision
+        ? `<button class="btn-reiniciar-canal" data-indice="${indice}">🔄 Reiniciar emisión</button>`
+        : `<button class="btn-iniciar-canal" data-indice="${indice}">▶️ INICIAR CANAL</button>`;
+
+    div.innerHTML = `
+        <div class="caja-id-canal">
+            <label>ID Canal ${indice + 1}:</label>
+            <input type="text" value="${canal.idCanal}" readonly>
+        </div>
+
+        ${estadoEmisionHTML}
+
+        <div class="cuerpo-tarjeta">
+            <div class="lado-izquierdo">
+                <h4 style="margin-bottom:10px; color:#9090c0;">Archivos</h4>
+                <div class="lista-archivos">${listaArchivosHTML}</div>
+            </div>
+
+            <div class="lado-derecho">
+                <h4 class="subida-titulo">Subir Video</h4>
+                <div class="subida-area">
+                    <input type="file" class="input-archivo" accept="video/*">
+                    <button class="btn-subir">Subir al Canal ${indice + 1}</button>
+                </div>
+                ${botonControl}
+            </div>
+        </div>
+    `;
+
+    asignarEventosTarjeta(div, indice);
+    return div;
+}
+
+// ======================================================
+// EVENTOS DE CADA TARJETA
+// ======================================================
+function asignarEventosTarjeta(tarjeta, indice) {
+    // Eliminar / Marcar como aviso / Iniciar / Reiniciar
+    tarjeta.addEventListener('click', (e) => {
+        if (e.target.classList.contains('btn-eliminar')) {
+            const idx = parseInt(e.target.dataset.archivo);
+            estado.canales[indice].archivos.splice(idx, 1);
+            if (estado.canales[indice].indiceAviso === idx) {
+                estado.canales[indice].indiceAviso = null;
+            }
+            guardarDatos();
+            renderizarTodo();
+        }
+
+        if (e.target.classList.contains('btn-marcar-aviso')) {
+            estado.canales[indice].indiceAviso = parseInt(e.target.dataset.idx);
+            guardarDatos();
+            renderizarTodo();
+        }
+
+        if (e.target.classList.contains('btn-iniciar-canal')) {
+            estado.canales[indice].horaInicio = new Date().toISOString();
+            estado.canales[indice].enEmision = true;
+            guardarDatos();
+            alert(`📡 Canal ${indice + 1} INICIADO!\nEl tiempo corre desde ahora.`);
+        }
+
+        if (e.target.classList.contains('btn-reiniciar-canal')) {
+            if (confirm('¿Reiniciar la emisión? El tiempo vuelve a cero.')) {
+                estado.canales[indice].horaInicio = new Date().toISOString();
+                estado.canales[indice].enEmision = true;
+                guardarDatos();
             }
         }
-    }
-    
-    // Si detectamos 3 marcadores, asumimos que hay un código QR
-    if (marcadores.length >= 3) {
-        return "QR detectado ✅ — Para decodificación completa de contenido, se recomienda usar bibliotecas especializadas (jsQR, ZXing).\n\nEsta versión base demuestra el funcionamiento offline y la detección de cámara.";
-    }
-    
-    return null;
+    });
+
+    // Subir archivo
+    const btnSubir = tarjeta.querySelector('.btn-subir');
+    const inputArchivo = tarjeta.querySelector('.input-archivo');
+
+    btnSubir.addEventListener('click', () => {
+        if (!estado.idPrincipal) {
+            alert('Primero conecta tu identificador principal arriba');
+            return;
+        }
+        const archivo = inputArchivo.files[0];
+        if (!archivo) {
+            alert('Selecciona un video primero');
+            return;
+        }
+
+        const tamano = formatearTamano(archivo.size);
+        estado.canales[indice].archivos.push({
+            nombre: archivo.name,
+            tamano: tamano,
+            tamanoBytes: archivo.size,
+            tipo: archivo.type,
+            fechaSubida: new Date().toLocaleString(),
+            url: `node://${estado.idPrincipal}/${estado.canales[indice].idCanal}/${archivo.name}`
+        });
+
+        guardarDatos();
+        renderizarTodo();
+        inputArchivo.value = '';
+    });
 }
 
-// ==============================================
-// FUNCIONES DE CÁMARA Y ESCANEO
-// ==============================================
-
-async function iniciarCamara() {
-    try {
-        estado.textContent = "Solicitando permiso...";
-        
-        // Preferir cámara trasera en móviles
-        const opciones = {
-            video: {
-                facingMode: 'environment',
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-            }
-        };
-        
-        transmisionCamara = await navigator.mediaDevices.getUserMedia(opciones);
-        video.srcObject = transmisionCamara;
-        
-        await new Promise(resolve => video.onloadedmetadata = resolve);
-        
-        estado.textContent = "Escaneando... Coloca el código en el marco";
-        escaneoActivo = true;
-        btnIniciar.classList.add('oculto');
-        btnDetener.classList.remove('oculto');
-        
-        // Iniciar ciclo de escaneo
-        idIntervalo = setInterval(escanearCuadro, 200);
-        
-    } catch (error) {
-        console.error('Error al acceder a la cámara:', error);
-        estado.textContent = "❌ No se pudo acceder a la cámara";
-        alert("No se pudo acceder a la cámara. Verifica los permisos y que estés usando HTTPS o archivo local.");
-    }
+function formatearTamano(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
+    return (bytes / 1073741824).toFixed(2) + ' GB';
 }
 
-function detenerCamara() {
-    if (transmisionCamara) {
-        transmisionCamara.getTracks().forEach(pista => pista.stop());
-        transmisionCamara = null;
-    }
-    escaneoActivo = false;
-    if (idIntervalo) {
-        clearInterval(idIntervalo);
-        idIntervalo = null;
-    }
-    video.srcObject = null;
-    estado.textContent = "Escaneo detenido";
-    btnIniciar.classList.remove('oculto');
-    btnDetener.classList.add('oculto');
-    cajaResultado.classList.add('oculto');
-    btnCopiar.classList.add('oculto');
-    btnAbrir.classList.add('oculto');
-}
+// ======================================================
+// DATOS COMPARTIDOS PARA LA APP DE TV
+// ======================================================
+function compartirEnRed() {
+    const datosPublicos = {
+        tipo: 'ZEPLI_CANALES',
+        idServidor: estado.idPrincipal,
+        fechaActualizacion: new Date().toISOString(),
+        canales: estado.canales.map(canal => {
+            let desplazamientoSegundos = 0;
+            let videoActivo = null;
 
-function escanearCuadro() {
-    if (!escaneoActivo) return;
-    
-    // Dibujar cuadro de video en lienzo
-    lienzo.width = video.videoWidth;
-    lienzo.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0);
-    
-    // Obtener datos de imagen
-    const datos = ctx.getImageData(0, 0, lienzo.width, lienzo.height);
-    
-    // Intentar decodificar
-    const resultado = decodificarQR(datos.data, lienzo.width, lienzo.height);
-    
-    if (resultado && resultado !== ultimoResultado) {
-        ultimoResultado = resultado;
-        mostrarResultado(resultado);
-    }
-}
-
-function mostrarResultado(texto) {
-    cajaResultado.classList.remove('oculto');
-    textoResultado.textContent = texto;
-    btnCopiar.classList.remove('oculto');
-    
-    // Detectar si es un enlace
-    if (/^https?:\/\//i.test(texto.trim())) {
-        btnAbrir.classList.remove('oculto');
-    }
-    
-    // Vibración si está disponible
-    if (navigator.vibrate) {
-        navigator.vibrate(100);
-    }
-}
-
-// ==============================================
-// PROCESAMIENTO DE IMAGEN SUBIDA
-// ==============================================
-
-entradaImagen.addEventListener('change', (e) => {
-    const archivo = e.target.files[0];
-    if (!archivo) return;
-    
-    const lector = new FileReader();
-    lector.onload = function(evento) {
-        const img = new Image();
-        img.onload = function() {
-            lienzo.width = img.width;
-            lienzo.height = img.height;
-            ctx.drawImage(img, 0, 0);
-            
-            const datos = ctx.getImageData(0, 0, lienzo.width, lienzo.height);
-            const resultado = decodificarQR(datos.data, lienzo.width, lienzo.height);
-            
-            if (resultado) {
-                mostrarResultado(resultado);
+            if (canal.enEmision && canal.horaInicio) {
+                const ahora = new Date();
+                const inicio = new Date(canal.horaInicio);
+                desplazamientoSegundos = Math.floor((ahora - inicio) / 1000);
+                videoActivo = canal.archivos.find((_, i) => i !== canal.indiceAviso);
             } else {
-                alert("No se pudo detectar un código QR en la imagen.");
+                if (canal.indiceAviso !== null) {
+                    videoActivo = canal.archivos[canal.indiceAviso];
+                }
             }
-        };
-        img.src = evento.target.result;
+
+            return {
+                id: canal.idCanal,
+                enEmision: canal.enEmision,
+                horaInicio: canal.horaInicio,
+                desplazamientoSegundos: desplazamientoSegundos,
+                videoActivo: videoActivo,
+                hayAviso: canal.indiceAviso !== null,
+                aviso: canal.indiceAviso !== null ? canal.archivos[canal.indiceAviso] : null,
+                todosLosVideos: canal.archivos
+            };
+        })
     };
-    lector.readAsDataURL(archivo);
-});
 
-// ==============================================
-// ACCIONES DE BOTONES
-// ==============================================
+    localStorage.setItem('zepli_datos_publicos', JSON.stringify(datosPublicos));
+    console.log('📤 Datos actualizados para la app de TV');
+}
 
-btnIniciar.addEventListener('click', iniciarCamara);
-btnDetener.addEventListener('click', detenerCamara);
-
-btnCopiar.addEventListener('click', async () => {
-    try {
-        await navigator.clipboard.writeText(textoResultado.textContent);
-        const textoOriginal = btnCopiar.textContent;
-        btnCopiar.textContent = "✅ ¡Copiado!";
-        setTimeout(() => btnCopiar.textContent = textoOriginal, 2000);
-    } catch (err) {
-        console.error('Error al copiar:', err);
-        alert("No se pudo copiar al portapapeles");
-    }
-});
-
-btnAbrir.addEventListener('click', () => {
-    const enlace = textoResultado.textContent.trim();
-    if (/^https?:\/\//i.test(enlace)) {
-        window.open(enlace, '_blank');
-    }
-});
+// ======================================================
+// INICIAR
+// ======================================================
+document.addEventListener('DOMContentLoaded', inicializar);
