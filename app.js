@@ -1,5 +1,5 @@
 // ======================================================
-// SERVIDOR ZEPLI — Corregido + Barra de Progreso
+// SERVIDOR ZEPLI — Sin duplicados + Selección corregida
 // ======================================================
 
 (function() {
@@ -27,7 +27,8 @@
         reset: `<svg class="svg-icon icon-reset" viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>`,
         star: `<svg class="svg-icon icon-star" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>`,
         del: `<svg class="svg-icon icon-delete" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14z"/></svg>`,
-        upload: `<svg class="svg-icon icon-upload" viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>`
+        upload: `<svg class="svg-icon icon-upload" viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>`,
+        folder: `<svg class="svg-icon" style="width:18px;height:18px;vertical-align:middle;margin-right:6px;" viewBox="0 0 24 24"><path fill="#ffd700" d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>`
     };
 
     // ======================================================
@@ -240,16 +241,31 @@
                 <div class="lado-derecho">
                     <h4 class="subida-titulo">Subir Video</h4>
                     <div class="subida-area">
-                        <input type="file" class="input-archivo" accept="video/*" id="archivo-${indice}">
-                        <button class="btn-seleccionar" data-indice="${indice}">📁 Elegir archivo</button>
-                        <div class="nombre-archivo-seleccionado" id="nombre-archivo-${indice}">Ningún archivo seleccionado</div>
-                        <div class="barra-progreso-contenedor" id="progreso-contenedor-${indice}" style="display:none; margin:10px 0;">
-                            <div style="background:#222; border-radius:4px; height:24px; overflow:hidden;">
-                                <div class="barra-progreso" id="barra-progreso-${indice}" style="background:#00e5ff; width:0%; height:100%; transition:width 0.3s ease; display:flex; align-items:center; justify-content:center; font-size:11px; color:#000; font-weight:bold;">0%</div>
-                            </div>
-                            <div class="texto-progreso" id="texto-progreso-${indice}" style="font-size:12px; color:#888; margin-top:4px;">Preparando...</div>
+                        <!-- Input oculto visualmente pero funcional -->
+                        <input type="file" class="input-archivo" accept="video/*" id="archivo-${indice}" style="display:none;">
+                        
+                        <!-- Solo un botón visible -->
+                        <button class="btn-elegir-archivo" data-indice="${indice}">
+                            ${ICONOS.folder} Elegir archivo
+                        </button>
+                        
+                        <!-- Nombre del archivo seleccionado -->
+                        <div class="nombre-archivo" id="nombre-archivo-${indice}">
+                            Ningún archivo seleccionado
                         </div>
-                        <button class="btn-subir" data-indice="${indice}" style="margin-top:8px; display:none;">${ICONOS.upload} Subir al Canal ${indice + 1}</button>
+                        
+                        <!-- Barra de progreso oculta al inicio -->
+                        <div class="progreso-contenedor" id="progreso-${indice}" style="display:none; margin:10px 0;">
+                            <div style="background:#222; border-radius:4px; height:24px; overflow:hidden;">
+                                <div class="barra-progreso" id="barra-${indice}" style="background:#00e5ff; width:0%; height:100%; transition:width 0.3s ease; display:flex; align-items:center; justify-content:center; font-size:11px; color:#000; font-weight:bold;">0%</div>
+                            </div>
+                            <div class="texto-progreso" id="texto-prog-${indice}" style="font-size:12px; color:#888; margin-top:4px;">Preparando...</div>
+                        </div>
+                        
+                        <!-- Botón de subir, aparece solo cuando hay archivo -->
+                        <button class="btn-subir-archivo" data-indice="${indice}" style="display:none; margin-top:10px;">
+                            ${ICONOS.upload} Subir Video
+                        </button>
                     </div>
                     ${botonControl}
                 </div>
@@ -261,24 +277,27 @@
     }
 
     function asignarEventosTarjeta(tarjeta, indice) {
-        const inputArchivo = tarjeta.querySelector('.input-archivo');
-        const btnSeleccionar = tarjeta.querySelector('.btn-seleccionar');
-        const btnSubir = tarjeta.querySelector('.btn-subir');
+        const inputArchivo = tarjeta.querySelector(`#archivo-${indice}`);
+        const btnElegir = tarjeta.querySelector('.btn-elegir-archivo');
         const nombreArchivo = tarjeta.querySelector(`#nombre-archivo-${indice}`);
-        const progresoContenedor = tarjeta.querySelector(`#progreso-contenedor-${indice}`);
-        const barraProgreso = tarjeta.querySelector(`#barra-progreso-${indice}`);
-        const textoProgreso = tarjeta.querySelector(`#texto-progreso-${indice}`);
+        const btnSubir = tarjeta.querySelector('.btn-subir-archivo');
+        const progresoContenedor = tarjeta.querySelector(`#progreso-${indice}`);
+        const barraProgreso = tarjeta.querySelector(`#barra-${indice}`);
+        const textoProgreso = tarjeta.querySelector(`#texto-prog-${indice}`);
 
         let archivoSeleccionado = null;
 
-        // Botón "Elegir archivo" abre el selector
-        btnSeleccionar.addEventListener('click', () => {
+        // 1️⃣ Botón Elegir → abre el selector de archivos
+        btnElegir.addEventListener('click', () => {
             inputArchivo.click();
         });
 
-        // Cuando se selecciona un archivo
+        // 2️⃣ Cuando el usuario selecciona un archivo
         inputArchivo.addEventListener('change', (e) => {
             const archivos = e.target.files;
+            
+            console.log('📂 Cambio detectado en canal', indice, 'Archivos:', archivos?.length);
+            
             if (!archivos || archivos.length === 0) {
                 nombreArchivo.textContent = 'Ningún archivo seleccionado';
                 nombreArchivo.style.color = '#888';
@@ -288,13 +307,15 @@
             }
 
             archivoSeleccionado = archivos[0];
+            console.log('✅ Archivo seleccionado:', archivoSeleccionado.name, 'Tamaño:', archivoSeleccionado.size);
+            
             nombreArchivo.textContent = '✓ ' + archivoSeleccionado.name + ' (' + formatearTamano(archivoSeleccionado.size) + ')';
             nombreArchivo.style.color = '#9effb8';
             btnSubir.style.display = 'block';
             progresoContenedor.style.display = 'none';
         });
 
-        // Subir el archivo
+        // 3️⃣ Botón Subir → guarda en IndexDB
         btnSubir.addEventListener('click', async () => {
             if (!estado.idPrincipal) {
                 alert('Primero conecta tu identificador principal arriba');
@@ -309,7 +330,8 @@
             progresoContenedor.style.display = 'block';
             barraProgreso.style.width = '0%';
             barraProgreso.textContent = '0%';
-            textoProgreso.textContent = 'Leyendo archivo...';
+            barraProgreso.style.background = '#00e5ff';
+            textoProgreso.textContent = 'Preparando...';
             btnSubir.disabled = true;
             btnSubir.style.opacity = '0.6';
 
@@ -318,16 +340,16 @@
                 const tamano = formatearTamano(archivo.size);
                 const dbId = 'archivo_' + Date.now() + '_' + Math.random().toString(36).slice(2);
 
-                // Simular progreso mientras se guarda en IndexDB
+                // Simular progreso
                 let progreso = 0;
                 const intervaloProgreso = setInterval(() => {
-                    progreso += Math.random() * 15 + 5;
+                    progreso += Math.random() * 12 + 3;
                     if (progreso > 90) progreso = 90;
                     const porcentaje = Math.round(progreso);
                     barraProgreso.style.width = porcentaje + '%';
                     barraProgreso.textContent = porcentaje + '%';
-                    textoProgreso.textContent = 'Guardando en base de datos... ' + porcentaje + '%';
-                }, 100);
+                    textoProgreso.textContent = 'Guardando... ' + porcentaje + '%';
+                }, 150);
 
                 // Guardar en IndexDB
                 await guardarArchivoDB({
@@ -340,13 +362,13 @@
 
                 clearInterval(intervaloProgreso);
 
-                // Completar al 100%
+                // Completar
                 barraProgreso.style.width = '100%';
                 barraProgreso.textContent = '✓ 100%';
                 barraProgreso.style.background = '#00c853';
                 textoProgreso.textContent = '¡Subido correctamente!';
 
-                // Guardar referencia en el estado
+                // Guardar referencia
                 estado.canales[indice].archivos.push({
                     dbId: dbId,
                     nombre: archivo.name,
@@ -360,12 +382,13 @@
                 await guardarEstadoDB();
                 compartirEnRed();
 
-                // Reset y refrescar
+                // Refrescar lista
                 setTimeout(() => {
                     renderizarTodo();
-                }, 800);
+                }, 1000);
 
             } catch (error) {
+                console.error('❌ Error al subir:', error);
                 barraProgreso.style.width = '100%';
                 barraProgreso.textContent = 'Error';
                 barraProgreso.style.background = '#ff4444';
@@ -376,12 +399,13 @@
             btnSubir.style.opacity = '1';
         });
 
-        // Eliminar
+        // Eliminar, marcar aviso, iniciar, reiniciar
         tarjeta.addEventListener('click', async (e) => {
             if (!e.target) return;
 
-            if (e.target.classList.contains('btn-eliminar')) {
-                const idx = parseInt(e.target.dataset.archivo);
+            const eliminarBtn = e.target.closest('.btn-eliminar');
+            if (eliminarBtn) {
+                const idx = parseInt(eliminarBtn.dataset.archivo);
                 const arch = estado.canales[indice].archivos[idx];
                 if (arch && arch.dbId) await eliminarArchivoDB(arch.dbId);
                 estado.canales[indice].archivos.splice(idx, 1);
@@ -393,14 +417,16 @@
                 renderizarTodo();
             }
 
-            if (e.target.classList.contains('btn-marcar-aviso')) {
-                estado.canales[indice].indiceAviso = parseInt(e.target.dataset.idx);
+            const estrellaBtn = e.target.closest('.btn-marcar-aviso');
+            if (estrellaBtn) {
+                estado.canales[indice].indiceAviso = parseInt(estrellaBtn.dataset.idx);
                 await guardarEstadoDB();
                 compartirEnRed();
                 renderizarTodo();
             }
 
-            if (e.target.classList.contains('btn-iniciar-canal')) {
+            const iniciarBtn = e.target.closest('.btn-iniciar-canal');
+            if (iniciarBtn) {
                 estado.canales[indice].horaInicio = new Date().toISOString();
                 estado.canales[indice].enEmision = true;
                 await guardarEstadoDB();
@@ -408,7 +434,8 @@
                 alert('Canal ' + (indice + 1) + ' INICIADO');
             }
 
-            if (e.target.classList.contains('btn-reiniciar-canal')) {
+            const reiniciarBtn = e.target.closest('.btn-reiniciar-canal');
+            if (reiniciarBtn) {
                 if (confirm('¿Reiniciar la emisión?')) {
                     estado.canales[indice].horaInicio = new Date().toISOString();
                     estado.canales[indice].enEmision = true;
