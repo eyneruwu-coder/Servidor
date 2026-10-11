@@ -1,5 +1,5 @@
 // ======================================================
-// SERVIDOR ZEPLI — IndexDB + SVG Icons — Sin límites
+// SERVIDOR ZEPLI — Corregido + Barra de Progreso
 // ======================================================
 
 (function() {
@@ -18,7 +18,7 @@
     };
 
     // ======================================================
-    // ICONOS SVG — Sin emojis
+    // ICONOS SVG
     // ======================================================
     const ICONOS = {
         live: `<svg class="svg-icon icon-live" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>`,
@@ -31,7 +31,7 @@
     };
 
     // ======================================================
-    // INDEXDB — Base de datos real, sin límite
+    // INDEXDB
     // ======================================================
     function abrirBaseDatos() {
         return new Promise((resolve, reject) => {
@@ -95,12 +95,22 @@
     }
 
     // ======================================================
-    // LÓGICA PRINCIPAL
+    // UTILIDADES
     // ======================================================
     function generarIdCanal(numero) {
         return 'ZEPLI-CANAL-' + String(numero).padStart(3, '0');
     }
 
+    function formatearTamano(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+        if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
+        return (bytes / 1073741824).toFixed(2) + ' GB';
+    }
+
+    // ======================================================
+    // INICIO
+    // ======================================================
     async function inicializar() {
         await abrirBaseDatos();
         await cargarEstadoDB();
@@ -123,15 +133,8 @@
         setInterval(renderizarTodo, TIEMPO_SINCRONIZACION);
     }
 
-    function formatearTamano(bytes) {
-        if (bytes < 1024) return bytes + ' B';
-        if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-        if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
-        return (bytes / 1073741824).toFixed(2) + ' GB';
-    }
-
     // ======================================================
-    // ELEMENTOS Y EVENTOS
+    // CONEXIÓN
     // ======================================================
     const idGeneral = document.getElementById('idGeneral');
     const btnConectarGeneral = document.getElementById('btnConectarGeneral');
@@ -202,7 +205,7 @@
                 const claseAviso = canal.indiceAviso === i ? 'aviso' : '';
                 const etiquetaAviso = canal.indiceAviso === i ? ICONOS.star + ' AVISO' : '';
                 const botonEstrella = canal.indiceAviso !== i ?
-                    `<button class="btn-marcar-aviso" data-idx="${i}">${ICONOS.star}</button>` : '';
+                    `<button class="btn-marcar-aviso" data-idx="${i}" title="Marcar como aviso">${ICONOS.star}</button>` : '';
                 return `
                     <div class="archivo-item ${claseAviso}">
                         <div class="archivo-info">
@@ -211,7 +214,7 @@
                         </div>
                         <div style="display:flex; gap:4px; align-items:center;">
                             ${botonEstrella}
-                            <button class="btn-eliminar" data-archivo="${i}">${ICONOS.del}</button>
+                            <button class="btn-eliminar" data-archivo="${i}" title="Eliminar">${ICONOS.del}</button>
                         </div>
                     </div>
                 `;
@@ -237,8 +240,16 @@
                 <div class="lado-derecho">
                     <h4 class="subida-titulo">Subir Video</h4>
                     <div class="subida-area">
-                        <input type="file" class="input-archivo" accept="video/*">
-                        <button class="btn-subir">${ICONOS.upload} Subir al Canal ${indice + 1}</button>
+                        <input type="file" class="input-archivo" accept="video/*" id="archivo-${indice}">
+                        <button class="btn-seleccionar" data-indice="${indice}">📁 Elegir archivo</button>
+                        <div class="nombre-archivo-seleccionado" id="nombre-archivo-${indice}">Ningún archivo seleccionado</div>
+                        <div class="barra-progreso-contenedor" id="progreso-contenedor-${indice}" style="display:none; margin:10px 0;">
+                            <div style="background:#222; border-radius:4px; height:24px; overflow:hidden;">
+                                <div class="barra-progreso" id="barra-progreso-${indice}" style="background:#00e5ff; width:0%; height:100%; transition:width 0.3s ease; display:flex; align-items:center; justify-content:center; font-size:11px; color:#000; font-weight:bold;">0%</div>
+                            </div>
+                            <div class="texto-progreso" id="texto-progreso-${indice}" style="font-size:12px; color:#888; margin-top:4px;">Preparando...</div>
+                        </div>
+                        <button class="btn-subir" data-indice="${indice}" style="margin-top:8px; display:none;">${ICONOS.upload} Subir al Canal ${indice + 1}</button>
                     </div>
                     ${botonControl}
                 </div>
@@ -250,12 +261,127 @@
     }
 
     function asignarEventosTarjeta(tarjeta, indice) {
-        // Acciones: eliminar, marcar aviso, iniciar, reiniciar
+        const inputArchivo = tarjeta.querySelector('.input-archivo');
+        const btnSeleccionar = tarjeta.querySelector('.btn-seleccionar');
+        const btnSubir = tarjeta.querySelector('.btn-subir');
+        const nombreArchivo = tarjeta.querySelector(`#nombre-archivo-${indice}`);
+        const progresoContenedor = tarjeta.querySelector(`#progreso-contenedor-${indice}`);
+        const barraProgreso = tarjeta.querySelector(`#barra-progreso-${indice}`);
+        const textoProgreso = tarjeta.querySelector(`#texto-progreso-${indice}`);
+
+        let archivoSeleccionado = null;
+
+        // Botón "Elegir archivo" abre el selector
+        btnSeleccionar.addEventListener('click', () => {
+            inputArchivo.click();
+        });
+
+        // Cuando se selecciona un archivo
+        inputArchivo.addEventListener('change', (e) => {
+            const archivos = e.target.files;
+            if (!archivos || archivos.length === 0) {
+                nombreArchivo.textContent = 'Ningún archivo seleccionado';
+                nombreArchivo.style.color = '#888';
+                btnSubir.style.display = 'none';
+                archivoSeleccionado = null;
+                return;
+            }
+
+            archivoSeleccionado = archivos[0];
+            nombreArchivo.textContent = '✓ ' + archivoSeleccionado.name + ' (' + formatearTamano(archivoSeleccionado.size) + ')';
+            nombreArchivo.style.color = '#9effb8';
+            btnSubir.style.display = 'block';
+            progresoContenedor.style.display = 'none';
+        });
+
+        // Subir el archivo
+        btnSubir.addEventListener('click', async () => {
+            if (!estado.idPrincipal) {
+                alert('Primero conecta tu identificador principal arriba');
+                return;
+            }
+            if (!archivoSeleccionado) {
+                alert('Selecciona un video primero');
+                return;
+            }
+
+            // Mostrar barra de progreso
+            progresoContenedor.style.display = 'block';
+            barraProgreso.style.width = '0%';
+            barraProgreso.textContent = '0%';
+            textoProgreso.textContent = 'Leyendo archivo...';
+            btnSubir.disabled = true;
+            btnSubir.style.opacity = '0.6';
+
+            try {
+                const archivo = archivoSeleccionado;
+                const tamano = formatearTamano(archivo.size);
+                const dbId = 'archivo_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+
+                // Simular progreso mientras se guarda en IndexDB
+                let progreso = 0;
+                const intervaloProgreso = setInterval(() => {
+                    progreso += Math.random() * 15 + 5;
+                    if (progreso > 90) progreso = 90;
+                    const porcentaje = Math.round(progreso);
+                    barraProgreso.style.width = porcentaje + '%';
+                    barraProgreso.textContent = porcentaje + '%';
+                    textoProgreso.textContent = 'Guardando en base de datos... ' + porcentaje + '%';
+                }, 100);
+
+                // Guardar en IndexDB
+                await guardarArchivoDB({
+                    id: dbId,
+                    nombre: archivo.name,
+                    tipo: archivo.type,
+                    tamanoBytes: archivo.size,
+                    blob: archivo
+                });
+
+                clearInterval(intervaloProgreso);
+
+                // Completar al 100%
+                barraProgreso.style.width = '100%';
+                barraProgreso.textContent = '✓ 100%';
+                barraProgreso.style.background = '#00c853';
+                textoProgreso.textContent = '¡Subido correctamente!';
+
+                // Guardar referencia en el estado
+                estado.canales[indice].archivos.push({
+                    dbId: dbId,
+                    nombre: archivo.name,
+                    tamano: tamano,
+                    tamanoBytes: archivo.size,
+                    tipo: archivo.type,
+                    fechaSubida: new Date().toLocaleString(),
+                    url: 'db://' + estado.idPrincipal + '/' + estado.canales[indice].idCanal + '/' + dbId
+                });
+
+                await guardarEstadoDB();
+                compartirEnRed();
+
+                // Reset y refrescar
+                setTimeout(() => {
+                    renderizarTodo();
+                }, 800);
+
+            } catch (error) {
+                barraProgreso.style.width = '100%';
+                barraProgreso.textContent = 'Error';
+                barraProgreso.style.background = '#ff4444';
+                textoProgreso.textContent = 'Error: ' + error.message;
+            }
+
+            btnSubir.disabled = false;
+            btnSubir.style.opacity = '1';
+        });
+
+        // Eliminar
         tarjeta.addEventListener('click', async (e) => {
             if (!e.target) return;
 
-            if (e.target.closest('.btn-eliminar')) {
-                const idx = parseInt(e.target.closest('.btn-eliminar').dataset.archivo);
+            if (e.target.classList.contains('btn-eliminar')) {
+                const idx = parseInt(e.target.dataset.archivo);
                 const arch = estado.canales[indice].archivos[idx];
                 if (arch && arch.dbId) await eliminarArchivoDB(arch.dbId);
                 estado.canales[indice].archivos.splice(idx, 1);
@@ -267,14 +393,14 @@
                 renderizarTodo();
             }
 
-            if (e.target.closest('.btn-marcar-aviso')) {
-                estado.canales[indice].indiceAviso = parseInt(e.target.closest('.btn-marcar-aviso').dataset.idx);
+            if (e.target.classList.contains('btn-marcar-aviso')) {
+                estado.canales[indice].indiceAviso = parseInt(e.target.dataset.idx);
                 await guardarEstadoDB();
                 compartirEnRed();
                 renderizarTodo();
             }
 
-            if (e.target.closest('.btn-iniciar-canal')) {
+            if (e.target.classList.contains('btn-iniciar-canal')) {
                 estado.canales[indice].horaInicio = new Date().toISOString();
                 estado.canales[indice].enEmision = true;
                 await guardarEstadoDB();
@@ -282,7 +408,7 @@
                 alert('Canal ' + (indice + 1) + ' INICIADO');
             }
 
-            if (e.target.closest('.btn-reiniciar-canal')) {
+            if (e.target.classList.contains('btn-reiniciar-canal')) {
                 if (confirm('¿Reiniciar la emisión?')) {
                     estado.canales[indice].horaInicio = new Date().toISOString();
                     estado.canales[indice].enEmision = true;
@@ -290,50 +416,6 @@
                     compartirEnRed();
                 }
             }
-        });
-
-        // Subir archivo — sin límite de tamaño
-        const btnSubir = tarjeta.querySelector('.btn-subir');
-        const inputArchivo = tarjeta.querySelector('.input-archivo');
-
-        btnSubir.addEventListener('click', async () => {
-            if (!estado.idPrincipal) {
-                alert('Primero conecta tu identificador principal');
-                return;
-            }
-            const archivos = inputArchivo.files;
-            if (!archivos || archivos.length === 0) {
-                alert('Selecciona un video primero');
-                return;
-            }
-
-            const archivo = archivos[0];
-            const tamano = formatearTamano(archivo.size);
-            const dbId = 'archivo_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-
-            // Guardar blob real en IndexDB
-            await guardarArchivoDB({
-                id: dbId,
-                nombre: archivo.name,
-                tipo: archivo.type,
-                tamanoBytes: archivo.size,
-                blob: archivo
-            });
-
-            estado.canales[indice].archivos.push({
-                dbId: dbId,
-                nombre: archivo.name,
-                tamano: tamano,
-                tamanoBytes: archivo.size,
-                tipo: archivo.type,
-                fechaSubida: new Date().toLocaleString(),
-                url: 'db://' + estado.idPrincipal + '/' + estado.canales[indice].idCanal + '/' + dbId
-            });
-
-            await guardarEstadoDB();
-            compartirEnRed();
-            renderizarTodo();
-            inputArchivo.value = '';
         });
     }
 
@@ -372,8 +454,6 @@
                 };
             })
         };
-
-        // Solo metadatos en localStorage, los archivos reales están en IndexDB
         localStorage.setItem('zepli_datos_publicos', JSON.stringify(datosPublicos));
     }
 
