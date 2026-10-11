@@ -1,12 +1,11 @@
 // ======================================================
-// SERVIDOR ZEPLI — Con Detener + Selección Corregida + Progreso
+// SERVIDOR ZEPLI — Selección de archivos corregida + Botones
 // ======================================================
 
 (function() {
     'use strict';
 
     const CANTIDAD_CANALES = 20;
-    const TIEMPO_SINCRONIZACION = 3000;
     const DB_NOMBRE = 'ZepliServidor';
     const DB_VERSION = 1;
 
@@ -18,19 +17,18 @@
     };
 
     // ======================================================
-    // ICONOS SVG — Sin emojis
+    // ICONOS SVG
     // ======================================================
     const ICONOS = {
         live: `<svg class="svg-icon icon-live" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>`,
         wait: `<svg class="svg-icon icon-wait" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm1-12h-2v6l5.25 3.15.75-1.23-4-2.37z"/></svg>`,
         play: `<svg class="svg-icon icon-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>`,
-        stop: `<svg class="svg-icon" style="width:16px;height:16px;fill:#fff;vertical-align:middle;margin-right:6px;" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12"/></svg>`,
-        close: `<svg class="svg-icon" style="width:16px;height:16px;fill:#fff;vertical-align:middle;margin-right:6px;" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>`,
-        reset: `<svg class="svg-icon icon-reset" viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>`,
+        stop: `<svg class="svg-icon" style="width:16px;height:16px;fill:#fff;margin-right:6px;" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12"/></svg>`,
+        close: `<svg class="svg-icon" style="width:16px;height:16px;fill:#fff;margin-right:6px;" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>`,
         star: `<svg class="svg-icon icon-star" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>`,
         del: `<svg class="svg-icon icon-delete" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14z"/></svg>`,
         upload: `<svg class="svg-icon icon-upload" viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>`,
-        folder: `<svg class="svg-icon" style="width:16px;height:16px;fill:#ffd700;vertical-align:middle;margin-right:6px;" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>`
+        folder: `<svg class="svg-icon" style="width:16px;height:16px;fill:#ffd700;margin-right:6px;" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>`
     };
 
     // ======================================================
@@ -41,17 +39,10 @@
             const solicitud = indexedDB.open(DB_NOMBRE, DB_VERSION);
             solicitud.onupgradeneeded = (e) => {
                 db = e.target.result;
-                if (!db.objectStoreNames.contains('estado')) {
-                    db.createObjectStore('estado', { keyPath: 'tipo' });
-                }
-                if (!db.objectStoreNames.contains('archivos')) {
-                    db.createObjectStore('archivos', { keyPath: 'id' });
-                }
+                if (!db.objectStoreNames.contains('estado')) db.createObjectStore('estado', { keyPath: 'tipo' });
+                if (!db.objectStoreNames.contains('archivos')) db.createObjectStore('archivos', { keyPath: 'id' });
             };
-            solicitud.onsuccess = (e) => {
-                db = e.target.result;
-                resolve();
-            };
+            solicitud.onsuccess = (e) => { db = e.target.result; resolve(); };
             solicitud.onerror = reject;
         });
     }
@@ -70,9 +61,7 @@
             const tx = db.transaction('estado', 'readonly');
             const solicitud = tx.objectStore('estado').get('principal');
             solicitud.onsuccess = () => {
-                if (solicitud.result) {
-                    estado = solicitud.result.datos;
-                }
+                if (solicitud.result) estado = solicitud.result.datos;
                 resolve();
             };
             solicitud.onerror = reject;
@@ -97,9 +86,6 @@
         });
     }
 
-    // ======================================================
-    // UTILIDADES
-    // ======================================================
     function generarIdCanal(numero) {
         return 'ZEPLI-CANAL-' + String(numero).padStart(3, '0');
     }
@@ -133,12 +119,10 @@
         }
 
         renderizarTodo();
-        setInterval(renderizarTodo, TIEMPO_SINCRONIZACION);
+        setInterval(renderizarTodo, 3000);
     }
 
-    // ======================================================
     // CONEXIÓN
-    // ======================================================
     const idGeneral = document.getElementById('idGeneral');
     const btnConectarGeneral = document.getElementById('btnConectarGeneral');
     const estadoGeneral = document.getElementById('estadoGeneral');
@@ -160,7 +144,7 @@
     });
 
     // ======================================================
-    // RENDERIZADO
+    // RENDERIZAR CANALES
     // ======================================================
     function renderizarTodo() {
         if (!listaCanales || !estado.canales) return;
@@ -175,44 +159,42 @@
         div.className = 'tarjeta-canal';
 
         // Estado de emisión
-        let estadoEmisionHTML = '';
-        if (canal.enEmision && canal.horaInicio) {
-            estadoEmisionHTML = `
+        let estadoHTML = '';
+        if (canal.enEmision) {
+            estadoHTML = `
                 <div class="estado-emision">
                     <div class="estado-en-vivo">
-                        ${ICONOS.live}
-                        EN EMISIÓN — Iniciado: ${new Date(canal.horaInicio).toLocaleTimeString()}
+                        ${ICONOS.live} EN EMISIÓN — Iniciado: ${new Date(canal.horaInicio).toLocaleTimeString()}
                     </div>
                 </div>
             `;
         } else {
-            estadoEmisionHTML = `
+            estadoHTML = `
                 <div class="estado-emision">
                     <div class="estado-preparando">
-                        ${ICONOS.wait}
-                        DETENIDO — Listo para iniciar
+                        ${ICONOS.wait} DETENIDO — Listo para iniciar
                     </div>
                 </div>
             `;
         }
 
         // Lista de archivos
-        let listaArchivosHTML = '<p style="color:#666; font-size:14px;">Sin archivos subidos</p>';
+        let archivosHTML = '<p style="color:#666; font-size:14px;">Sin archivos subidos</p>';
         if (canal.archivos.length > 0) {
-            listaArchivosHTML = canal.archivos.map((archivo, i) => {
-                const claseAviso = canal.indiceAviso === i ? 'aviso' : '';
-                const etiquetaAviso = canal.indiceAviso === i ? ICONOS.star + ' AVISO' : '';
-                const botonEstrella = canal.indiceAviso !== i ?
-                    `<button class="btn-marcar-aviso" data-idx="${i}" title="Marcar como aviso">${ICONOS.star}</button>` : '';
+            archivosHTML = canal.archivos.map((arch, i) => {
+                const aviso = canal.indiceAviso === i ? 'aviso' : '';
+                const estrella = canal.indiceAviso !== i
+                    ? `<button class="btn-marcar-aviso" data-idx="${i}">${ICONOS.star}</button>`
+                    : '';
                 return `
-                    <div class="archivo-item ${claseAviso}">
+                    <div class="archivo-item ${aviso}">
                         <div class="archivo-info">
-                            <span class="archivo-nombre">${archivo.nombre}</span>
-                            <span class="archivo-tamano">${archivo.tamano} ${etiquetaAviso}</span>
+                            <span class="archivo-nombre">${arch.nombre}</span>
+                            <span class="archivo-tamano">${arch.tamano}${canal.indiceAviso === i ? ' ⭐ AVISO' : ''}</span>
                         </div>
-                        <div style="display:flex; gap:4px; align-items:center;">
-                            ${botonEstrella}
-                            <button class="btn-eliminar" data-archivo="${i}" title="Eliminar">${ICONOS.del}</button>
+                        <div style="display:flex;gap:4px;">
+                            ${estrella}
+                            <button class="btn-eliminar" data-archivo="${i}">${ICONOS.del}</button>
                         </div>
                     </div>
                 `;
@@ -220,20 +202,20 @@
         }
 
         // Botones de acción
-        const botonesAccion = canal.enEmision
+        const botones = canal.enEmision
             ? `
-                <button class="btn-detener-canal" data-indice="${indice}" style="background:#d4a000; color:#fff; border:none; border-radius:6px; padding:10px 16px; margin-top:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; width:100%; font-size:14px;">
+                <button class="btn-detener-canal" data-indice="${indice}" style="background:#d4a000;margin-top:15px;">
                     ${ICONOS.stop} Detener Canal
                 </button>
-                <button class="btn-cerrar-canal" data-indice="${indice}" style="background:#aa2222; color:#fff; border:none; border-radius:6px; padding:10px 16px; margin-top:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; width:100%; font-size:14px;">
+                <button class="btn-cerrar-canal" data-indice="${indice}">
                     ${ICONOS.close} Cerrar Canal
                 </button>
             `
             : `
-                <button class="btn-iniciar-canal" data-indice="${indice}" style="background:#00c853; color:#fff; border:none; border-radius:6px; padding:10px 16px; margin-top:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; width:100%; font-size:14px;">
+                <button class="btn-iniciar-canal" data-indice="${indice}" style="background:#00c853;margin-top:15px;">
                     ${ICONOS.play} Iniciar Canal
                 </button>
-                <button class="btn-cerrar-canal" data-indice="${indice}" style="background:#aa2222; color:#fff; border:none; border-radius:6px; padding:10px 16px; margin-top:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; width:100%; font-size:14px;">
+                <button class="btn-cerrar-canal" data-indice="${indice}">
                     ${ICONOS.close} Cerrar Canal
                 </button>
             `;
@@ -243,114 +225,113 @@
                 <label>ID Canal ${indice + 1}:</label>
                 <input type="text" value="${canal.idCanal}" readonly>
             </div>
-            ${estadoEmisionHTML}
+            ${estadoHTML}
             <div class="cuerpo-tarjeta">
                 <div class="lado-izquierdo">
                     <h4 class="subida-titulo">Archivos</h4>
-                    <div class="lista-archivos">${listaArchivosHTML}</div>
+                    <div class="lista-archivos">${archivosHTML}</div>
                 </div>
                 <div class="lado-derecho">
                     <h4 class="subida-titulo">Subir Video</h4>
                     <div class="subida-area">
-                        <input type="file" class="input-archivo" data-canal="${indice}" accept="video/*" style="display:none;" id="input-canal-${indice}">
-                        <button class="btn-elegir-archivo" data-canal="${indice}" style="background:#444; color:#fff; border:none; border-radius:6px; padding:10px 16px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; width:100%; font-size:14px;">
+                        <input type="file" class="input-archivo" data-canal="${indice}" accept="video/*" id="archivo-${indice}" style="display:none">
+                        <button type="button" class="btn-elegir" data-canal="${indice}">
                             ${ICONOS.folder} Elegir archivo
                         </button>
-                        <div class="nombre-archivo" id="nombre-archivo-${indice}" style="font-size:13px; color:#888; margin-top:8px;">Ningún archivo seleccionado</div>
+                        <div class="nombre-archivo" id="nombre-${indice}" style="font-size:13px;color:#888;">Ningún archivo seleccionado</div>
                         
-                        <!-- Barra de progreso -->
-                        <div id="progreso-contenedor-${indice}" style="display:none; margin-top:10px;">
-                            <div style="background:#222; border-radius:4px; height:20px; overflow:hidden;">
-                                <div id="barra-progreso-${indice}" style="background:#00e5ff; width:0%; height:100%; transition:width 0.2s ease; display:flex; align-items:center; justify-content:center; font-size:10px; color:#000; font-weight:bold;">0%</div>
+                        <div id="progreso-${indice}" style="display:none;margin-top:8px;">
+                            <div style="background:#222;border-radius:4px;height:18px;overflow:hidden;">
+                                <div id="barra-${indice}" style="background:#00e5ff;width:0%;height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;color:#000;font-weight:bold;">0%</div>
                             </div>
-                            <div id="texto-progreso-${indice}" style="font-size:11px; color:#888; margin-top:4px;">Preparando...</div>
+                            <div id="texto-prog-${indice}" style="font-size:11px;color:#888;margin-top:4px;">Preparando...</div>
                         </div>
                         
-                        <button class="btn-subir-archivo" data-canal="${indice}" style="display:none; margin-top:10px; background:#2a6090; color:#fff; border:none; border-radius:6px; padding:10px 16px; cursor:pointer; align-items:center; justify-content:center; gap:6px; width:100%; font-size:14px;">
+                        <button type="button" class="btn-subir" data-canal="${indice}" style="display:none;margin-top:8px;">
                             ${ICONOS.upload} Subir Video
                         </button>
                     </div>
-                    ${botonesAccion}
+                    ${botones}
                 </div>
             </div>
         `;
 
-        asignarEventosTarjeta(div, indice);
+        conectarEventosTarjeta(div, indice);
         return div;
     }
 
-    function asignarEventosTarjeta(tarjeta, indice) {
-        const inputArchivo = tarjeta.querySelector(`#input-canal-${indice}`);
-        const btnElegir = tarjeta.querySelector('.btn-elegir-archivo');
-        const nombreArchivo = tarjeta.querySelector(`#nombre-archivo-${indice}`);
-        const btnSubir = tarjeta.querySelector('.btn-subir-archivo');
-        const barraProgreso = tarjeta.querySelector(`#barra-progreso-${indice}`);
-        const textoProgreso = tarjeta.querySelector(`#texto-progreso-${indice}`);
-        const progresoContenedor = tarjeta.querySelector(`#progreso-contenedor-${indice}`);
+    function conectarEventosTarjeta(tarjeta, indice) {
+        const input = tarjeta.querySelector(`#archivo-${indice}`);
+        const btnElegir = tarjeta.querySelector('.btn-elegir');
+        const nombre = tarjeta.querySelector(`#nombre-${indice}`);
+        const btnSubir = tarjeta.querySelector('.btn-subir');
+        const barra = tarjeta.querySelector(`#barra-${indice}`);
+        const textoProg = tarjeta.querySelector(`#texto-prog-${indice}`);
+        const progresoDiv = tarjeta.querySelector(`#progreso-${indice}`);
 
-        let archivoSeleccionado = null;
+        let archivoActual = null;
 
-        // Botón Elegir → abre el selector
+        // 1. Botón Elegir → abre el selector
         btnElegir.addEventListener('click', () => {
-            inputArchivo.click();
+            console.log('📂 Abriendo selector para canal', indice);
+            input.click();
         });
 
-        // Cuando se selecciona un archivo
-        inputArchivo.addEventListener('change', (e) => {
-            const archivos = e.target.files;
+        // 2. Cuando se selecciona un archivo
+        input.addEventListener('change', (e) => {
+            console.log('📁 Evento change detectado', e.target.files);
             
-            if (!archivos || archivos.length === 0) {
-                nombreArchivo.textContent = 'Ningún archivo seleccionado';
-                nombreArchivo.style.color = '#888';
+            if (!e.target.files || e.target.files.length === 0) {
+                nombre.textContent = 'Ningún archivo seleccionado';
+                nombre.style.color = '#888';
                 btnSubir.style.display = 'none';
-                archivoSeleccionado = null;
+                archivoActual = null;
                 return;
             }
 
-            archivoSeleccionado = archivos[0];
-            nombreArchivo.textContent = '✓ ' + archivoSeleccionado.name + ' (' + formatearTamano(archivoSeleccionado.size) + ')';
-            nombreArchivo.style.color = '#9effb8';
+            archivoActual = e.target.files[0];
+            nombre.textContent = '✓ ' + archivoActual.name + ' (' + formatearTamano(archivoActual.size) + ')';
+            nombre.style.color = '#9effb8';
             btnSubir.style.display = 'flex';
-            progresoContenedor.style.display = 'none';
+            progresoDiv.style.display = 'none';
+            
+            console.log('✅ Archivo seleccionado:', archivoActual.name);
         });
 
-        // Subir archivo con barra de progreso
+        // 3. Subir archivo
         btnSubir.addEventListener('click', async () => {
             if (!estado.idPrincipal) {
-                alert('Primero conecta tu identificador principal arriba');
+                alert('Primero conecta tu identificador arriba');
                 return;
             }
-            if (!archivoSeleccionado) {
-                alert('Selecciona un video primero');
+            if (!archivoActual) {
+                alert('Selecciona un archivo primero');
                 return;
             }
 
-            // Mostrar barra
-            progresoContenedor.style.display = 'block';
-            barraProgreso.style.width = '0%';
-            barraProgreso.textContent = '0%';
-            barraProgreso.style.background = '#00e5ff';
-            textoProgreso.textContent = 'Leyendo archivo...';
+            progresoDiv.style.display = 'block';
+            barra.style.width = '0%';
+            barra.textContent = '0%';
+            barra.style.background = '#00e5ff';
+            textoProg.textContent = 'Preparando...';
             btnSubir.disabled = true;
-            btnSubir.style.opacity = '0.6';
 
             try {
-                const archivo = archivoSeleccionado;
+                const archivo = archivoActual;
                 const tamano = formatearTamano(archivo.size);
                 const dbId = 'archivo_' + Date.now() + '_' + Math.random().toString(36).slice(2);
 
-                // Simular progreso de lectura/guardado
-                let progreso = 0;
+                // Simular progreso
+                let prog = 0;
                 const intervalo = setInterval(() => {
-                    progreso += Math.random() * 8 + 2;
-                    if (progreso > 95) progreso = 95;
-                    const porcentaje = Math.round(progreso);
-                    barraProgreso.style.width = porcentaje + '%';
-                    barraProgreso.textContent = porcentaje + '%';
-                    textoProgreso.textContent = 'Guardando: ' + porcentaje + '% — ' + tamano;
+                    prog += Math.random() * 5 + 2;
+                    if (prog > 95) prog = 95;
+                    const pct = Math.round(prog);
+                    barra.style.width = pct + '%';
+                    barra.textContent = pct + '%';
+                    textoProg.textContent = 'Guardando: ' + pct + '% — ' + tamano;
                 }, 150);
 
-                // Guardar en IndexDB
                 await guardarArchivoDB({
                     id: dbId,
                     nombre: archivo.name,
@@ -361,19 +342,14 @@
 
                 clearInterval(intervalo);
 
-                // Completado
-                barraProgreso.style.width = '100%';
-                barraProgreso.textContent = '✓ 100%';
-                barraProgreso.style.background = '#00c853';
-                textoProgreso.textContent = '¡Subido correctamente!';
+                barra.style.width = '100%';
+                barra.textContent = '✓ 100%';
+                barra.style.background = '#00c853';
+                textoProg.textContent = '¡Subido correctamente!';
 
-                // Agregar a la lista
                 estado.canales[indice].archivos.push({
-                    dbId: dbId,
-                    nombre: archivo.name,
-                    tamano: tamano,
-                    tamanoBytes: archivo.size,
-                    tipo: archivo.type,
+                    dbId, nombre: archivo.name, tamano,
+                    tamanoBytes: archivo.size, tipo: archivo.type,
                     fechaSubida: new Date().toLocaleString(),
                     url: 'db://' + estado.idPrincipal + '/' + estado.canales[indice].idCanal + '/' + dbId
                 });
@@ -381,31 +357,25 @@
                 await guardarEstadoDB();
                 compartirEnRed();
 
-                // Refrescar después de 1 segundo
-                setTimeout(() => {
-                    renderizarTodo();
-                }, 1000);
+                setTimeout(() => renderizarTodo(), 1200);
 
-            } catch (error) {
-                console.error('Error:', error);
-                barraProgreso.style.width = '100%';
-                barraProgreso.textContent = 'Error';
-                barraProgreso.style.background = '#ff4444';
-                textoProgreso.textContent = 'Error: ' + error.message;
+            } catch (err) {
+                console.error(err);
+                barra.style.width = '100%';
+                barra.textContent = 'Error';
+                barra.style.background = '#ff4444';
+                textoProg.textContent = 'Error: ' + err.message;
             }
 
             btnSubir.disabled = false;
-            btnSubir.style.opacity = '1';
         });
 
-        // Acciones de botones
+        // Acciones generales del canal
         tarjeta.addEventListener('click', async (e) => {
-            if (!e.target) return;
-            const target = e.target.closest('button');
-            if (!target) return;
+            const t = e.target.closest('button');
+            if (!t) return;
 
-            // Iniciar Canal
-            if (target.classList.contains('btn-iniciar-canal')) {
+            if (t.classList.contains('btn-iniciar-canal')) {
                 estado.canales[indice].enEmision = true;
                 estado.canales[indice].horaInicio = new Date().toISOString();
                 await guardarEstadoDB();
@@ -413,8 +383,7 @@
                 renderizarTodo();
             }
 
-            // Detener Canal
-            if (target.classList.contains('btn-detener-canal')) {
+            if (t.classList.contains('btn-detener-canal')) {
                 estado.canales[indice].enEmision = false;
                 estado.canales[indice].horaInicio = null;
                 await guardarEstadoDB();
@@ -422,14 +391,11 @@
                 renderizarTodo();
             }
 
-            // Cerrar Canal — BORRA TODO
-            if (target.classList.contains('btn-cerrar-canal')) {
-                if (confirm('¿Seguro que quieres CERRAR este canal? Se eliminarán TODOS los videos y no se puede deshacer.')) {
-                    // Eliminar todos los archivos de este canal de IndexDB
+            if (t.classList.contains('btn-cerrar-canal')) {
+                if (confirm('¿Cerrar canal? Se borrarán TODOS los videos. Esta acción no se puede deshacer.')) {
                     for (const arch of estado.canales[indice].archivos) {
                         if (arch.dbId) await eliminarArchivoDB(arch.dbId);
                     }
-                    // Reiniciar el canal
                     estado.canales[indice].archivos = [];
                     estado.canales[indice].enEmision = false;
                     estado.canales[indice].horaInicio = null;
@@ -440,23 +406,19 @@
                 }
             }
 
-            // Eliminar archivo individual
-            if (target.classList.contains('btn-eliminar')) {
-                const idx = parseInt(target.dataset.archivo);
+            if (t.classList.contains('btn-eliminar')) {
+                const idx = parseInt(t.dataset.archivo);
                 const arch = estado.canales[indice].archivos[idx];
-                if (arch && arch.dbId) await eliminarArchivoDB(arch.dbId);
+                if (arch?.dbId) await eliminarArchivoDB(arch.dbId);
                 estado.canales[indice].archivos.splice(idx, 1);
-                if (estado.canales[indice].indiceAviso === idx) {
-                    estado.canales[indice].indiceAviso = null;
-                }
+                if (estado.canales[indice].indiceAviso === idx) estado.canales[indice].indiceAviso = null;
                 await guardarEstadoDB();
                 compartirEnRed();
                 renderizarTodo();
             }
 
-            // Marcar como aviso
-            if (target.classList.contains('btn-marcar-aviso')) {
-                const idx = parseInt(target.dataset.idx);
+            if (t.classList.contains('btn-marcar-aviso')) {
+                const idx = parseInt(t.dataset.idx);
                 estado.canales[indice].indiceAviso = estado.canales[indice].indiceAviso === idx ? null : idx;
                 await guardarEstadoDB();
                 compartirEnRed();
@@ -465,47 +427,23 @@
         });
     }
 
-    // ======================================================
-    // COMPARTIR PARA APP DE TV
-    // ======================================================
     function compartirEnRed() {
-        const datosPublicos = {
+        const datos = {
             tipo: 'ZEPLI_CANALES',
             idServidor: estado.idPrincipal,
             fechaActualizacion: new Date().toISOString(),
-            canales: estado.canales.map(canal => {
-                let desplazamientoSegundos = 0;
-                let videoActivo = null;
-
-                if (canal.enEmision && canal.horaInicio) {
-                    const ahora = new Date();
-                    const inicio = new Date(canal.horaInicio);
-                    desplazamientoSegundos = Math.floor((ahora - inicio) / 1000);
-                    videoActivo = canal.archivos.find((_, i) => i !== canal.indiceAviso);
-                } else {
-                    if (canal.indiceAviso !== null) {
-                        videoActivo = canal.archivos[canal.indiceAviso];
-                    }
-                }
-
-                return {
-                    id: canal.idCanal,
-                    enEmision: canal.enEmision,
-                    horaInicio: canal.horaInicio,
-                    desplazamientoSegundos: desplazamientoSegundos,
-                    videoActivo: videoActivo,
-                    hayAviso: canal.indiceAviso !== null,
-                    aviso: canal.indiceAviso !== null ? canal.archivos[canal.indiceAviso] : null,
-                    todosLosVideos: canal.archivos
-                };
-            })
+            canales: estado.canales.map(c => ({
+                id: c.idCanal,
+                enEmision: c.enEmision,
+                horaInicio: c.horaInicio,
+                archivos: c.archivos,
+                indiceAviso: c.indiceAviso
+            }))
         };
-        localStorage.setItem('zepli_datos_publicos', JSON.stringify(datosPublicos));
+        localStorage.setItem('zepli_datos_publicos', JSON.stringify(datos));
     }
 
-    // ======================================================
     // ARRANQUE
-    // ======================================================
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', inicializar);
     } else {
