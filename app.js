@@ -1,5 +1,5 @@
 // ======================================================
-// SERVIDOR ZEPLI — Sin duplicados + Selección corregida
+// SERVIDOR ZEPLI — Con Detener + Selección Corregida + Progreso
 // ======================================================
 
 (function() {
@@ -18,17 +18,19 @@
     };
 
     // ======================================================
-    // ICONOS SVG
+    // ICONOS SVG — Sin emojis
     // ======================================================
     const ICONOS = {
         live: `<svg class="svg-icon icon-live" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>`,
         wait: `<svg class="svg-icon icon-wait" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm1-12h-2v6l5.25 3.15.75-1.23-4-2.37z"/></svg>`,
         play: `<svg class="svg-icon icon-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>`,
+        stop: `<svg class="svg-icon" style="width:16px;height:16px;fill:#fff;vertical-align:middle;margin-right:6px;" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12"/></svg>`,
+        close: `<svg class="svg-icon" style="width:16px;height:16px;fill:#fff;vertical-align:middle;margin-right:6px;" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>`,
         reset: `<svg class="svg-icon icon-reset" viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>`,
         star: `<svg class="svg-icon icon-star" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>`,
         del: `<svg class="svg-icon icon-delete" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14z"/></svg>`,
         upload: `<svg class="svg-icon icon-upload" viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>`,
-        folder: `<svg class="svg-icon" style="width:18px;height:18px;vertical-align:middle;margin-right:6px;" viewBox="0 0 24 24"><path fill="#ffd700" d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>`
+        folder: `<svg class="svg-icon" style="width:16px;height:16px;fill:#ffd700;vertical-align:middle;margin-right:6px;" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>`
     };
 
     // ======================================================
@@ -175,16 +177,11 @@
         // Estado de emisión
         let estadoEmisionHTML = '';
         if (canal.enEmision && canal.horaInicio) {
-            const ahora = new Date();
-            const inicio = new Date(canal.horaInicio);
-            const transcurridoMs = ahora - inicio;
-            const minutos = Math.floor(transcurridoMs / 60000);
-            const segundos = Math.floor((transcurridoMs % 60000) / 1000);
             estadoEmisionHTML = `
                 <div class="estado-emision">
                     <div class="estado-en-vivo">
                         ${ICONOS.live}
-                        EN EMISIÓN — Minuto ${minutos}:${String(segundos).padStart(2, '0')}
+                        EN EMISIÓN — Iniciado: ${new Date(canal.horaInicio).toLocaleTimeString()}
                     </div>
                 </div>
             `;
@@ -193,7 +190,7 @@
                 <div class="estado-emision">
                     <div class="estado-preparando">
                         ${ICONOS.wait}
-                        PREPARANDO — Listo para iniciar
+                        DETENIDO — Listo para iniciar
                     </div>
                 </div>
             `;
@@ -222,10 +219,24 @@
             }).join('');
         }
 
-        // Botón de control
-        const botonControl = canal.enEmision
-            ? `<button class="btn-reiniciar-canal" data-indice="${indice}">${ICONOS.reset} Reiniciar emisión</button>`
-            : `<button class="btn-iniciar-canal" data-indice="${indice}">${ICONOS.play} INICIAR CANAL</button>`;
+        // Botones de acción
+        const botonesAccion = canal.enEmision
+            ? `
+                <button class="btn-detener-canal" data-indice="${indice}" style="background:#d4a000; color:#fff; border:none; border-radius:6px; padding:10px 16px; margin-top:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; width:100%; font-size:14px;">
+                    ${ICONOS.stop} Detener Canal
+                </button>
+                <button class="btn-cerrar-canal" data-indice="${indice}" style="background:#aa2222; color:#fff; border:none; border-radius:6px; padding:10px 16px; margin-top:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; width:100%; font-size:14px;">
+                    ${ICONOS.close} Cerrar Canal
+                </button>
+            `
+            : `
+                <button class="btn-iniciar-canal" data-indice="${indice}" style="background:#00c853; color:#fff; border:none; border-radius:6px; padding:10px 16px; margin-top:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; width:100%; font-size:14px;">
+                    ${ICONOS.play} Iniciar Canal
+                </button>
+                <button class="btn-cerrar-canal" data-indice="${indice}" style="background:#aa2222; color:#fff; border:none; border-radius:6px; padding:10px 16px; margin-top:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; width:100%; font-size:14px;">
+                    ${ICONOS.close} Cerrar Canal
+                </button>
+            `;
 
         div.innerHTML = `
             <div class="caja-id-canal">
@@ -235,39 +246,31 @@
             ${estadoEmisionHTML}
             <div class="cuerpo-tarjeta">
                 <div class="lado-izquierdo">
-                    <h4 style="margin-bottom:10px; color:#9090c0;">Archivos</h4>
+                    <h4 class="subida-titulo">Archivos</h4>
                     <div class="lista-archivos">${listaArchivosHTML}</div>
                 </div>
                 <div class="lado-derecho">
                     <h4 class="subida-titulo">Subir Video</h4>
                     <div class="subida-area">
-                        <!-- Input oculto visualmente pero funcional -->
-                        <input type="file" class="input-archivo" accept="video/*" id="archivo-${indice}" style="display:none;">
-                        
-                        <!-- Solo un botón visible -->
-                        <button class="btn-elegir-archivo" data-indice="${indice}">
+                        <input type="file" class="input-archivo" data-canal="${indice}" accept="video/*" style="display:none;" id="input-canal-${indice}">
+                        <button class="btn-elegir-archivo" data-canal="${indice}" style="background:#444; color:#fff; border:none; border-radius:6px; padding:10px 16px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; width:100%; font-size:14px;">
                             ${ICONOS.folder} Elegir archivo
                         </button>
+                        <div class="nombre-archivo" id="nombre-archivo-${indice}" style="font-size:13px; color:#888; margin-top:8px;">Ningún archivo seleccionado</div>
                         
-                        <!-- Nombre del archivo seleccionado -->
-                        <div class="nombre-archivo" id="nombre-archivo-${indice}">
-                            Ningún archivo seleccionado
-                        </div>
-                        
-                        <!-- Barra de progreso oculta al inicio -->
-                        <div class="progreso-contenedor" id="progreso-${indice}" style="display:none; margin:10px 0;">
-                            <div style="background:#222; border-radius:4px; height:24px; overflow:hidden;">
-                                <div class="barra-progreso" id="barra-${indice}" style="background:#00e5ff; width:0%; height:100%; transition:width 0.3s ease; display:flex; align-items:center; justify-content:center; font-size:11px; color:#000; font-weight:bold;">0%</div>
+                        <!-- Barra de progreso -->
+                        <div id="progreso-contenedor-${indice}" style="display:none; margin-top:10px;">
+                            <div style="background:#222; border-radius:4px; height:20px; overflow:hidden;">
+                                <div id="barra-progreso-${indice}" style="background:#00e5ff; width:0%; height:100%; transition:width 0.2s ease; display:flex; align-items:center; justify-content:center; font-size:10px; color:#000; font-weight:bold;">0%</div>
                             </div>
-                            <div class="texto-progreso" id="texto-prog-${indice}" style="font-size:12px; color:#888; margin-top:4px;">Preparando...</div>
+                            <div id="texto-progreso-${indice}" style="font-size:11px; color:#888; margin-top:4px;">Preparando...</div>
                         </div>
                         
-                        <!-- Botón de subir, aparece solo cuando hay archivo -->
-                        <button class="btn-subir-archivo" data-indice="${indice}" style="display:none; margin-top:10px;">
+                        <button class="btn-subir-archivo" data-canal="${indice}" style="display:none; margin-top:10px; background:#2a6090; color:#fff; border:none; border-radius:6px; padding:10px 16px; cursor:pointer; align-items:center; justify-content:center; gap:6px; width:100%; font-size:14px;">
                             ${ICONOS.upload} Subir Video
                         </button>
                     </div>
-                    ${botonControl}
+                    ${botonesAccion}
                 </div>
             </div>
         `;
@@ -277,26 +280,24 @@
     }
 
     function asignarEventosTarjeta(tarjeta, indice) {
-        const inputArchivo = tarjeta.querySelector(`#archivo-${indice}`);
+        const inputArchivo = tarjeta.querySelector(`#input-canal-${indice}`);
         const btnElegir = tarjeta.querySelector('.btn-elegir-archivo');
         const nombreArchivo = tarjeta.querySelector(`#nombre-archivo-${indice}`);
         const btnSubir = tarjeta.querySelector('.btn-subir-archivo');
-        const progresoContenedor = tarjeta.querySelector(`#progreso-${indice}`);
-        const barraProgreso = tarjeta.querySelector(`#barra-${indice}`);
-        const textoProgreso = tarjeta.querySelector(`#texto-prog-${indice}`);
+        const barraProgreso = tarjeta.querySelector(`#barra-progreso-${indice}`);
+        const textoProgreso = tarjeta.querySelector(`#texto-progreso-${indice}`);
+        const progresoContenedor = tarjeta.querySelector(`#progreso-contenedor-${indice}`);
 
         let archivoSeleccionado = null;
 
-        // 1️⃣ Botón Elegir → abre el selector de archivos
+        // Botón Elegir → abre el selector
         btnElegir.addEventListener('click', () => {
             inputArchivo.click();
         });
 
-        // 2️⃣ Cuando el usuario selecciona un archivo
+        // Cuando se selecciona un archivo
         inputArchivo.addEventListener('change', (e) => {
             const archivos = e.target.files;
-            
-            console.log('📂 Cambio detectado en canal', indice, 'Archivos:', archivos?.length);
             
             if (!archivos || archivos.length === 0) {
                 nombreArchivo.textContent = 'Ningún archivo seleccionado';
@@ -307,15 +308,13 @@
             }
 
             archivoSeleccionado = archivos[0];
-            console.log('✅ Archivo seleccionado:', archivoSeleccionado.name, 'Tamaño:', archivoSeleccionado.size);
-            
             nombreArchivo.textContent = '✓ ' + archivoSeleccionado.name + ' (' + formatearTamano(archivoSeleccionado.size) + ')';
             nombreArchivo.style.color = '#9effb8';
-            btnSubir.style.display = 'block';
+            btnSubir.style.display = 'flex';
             progresoContenedor.style.display = 'none';
         });
 
-        // 3️⃣ Botón Subir → guarda en IndexDB
+        // Subir archivo con barra de progreso
         btnSubir.addEventListener('click', async () => {
             if (!estado.idPrincipal) {
                 alert('Primero conecta tu identificador principal arriba');
@@ -326,12 +325,12 @@
                 return;
             }
 
-            // Mostrar barra de progreso
+            // Mostrar barra
             progresoContenedor.style.display = 'block';
             barraProgreso.style.width = '0%';
             barraProgreso.textContent = '0%';
             barraProgreso.style.background = '#00e5ff';
-            textoProgreso.textContent = 'Preparando...';
+            textoProgreso.textContent = 'Leyendo archivo...';
             btnSubir.disabled = true;
             btnSubir.style.opacity = '0.6';
 
@@ -340,15 +339,15 @@
                 const tamano = formatearTamano(archivo.size);
                 const dbId = 'archivo_' + Date.now() + '_' + Math.random().toString(36).slice(2);
 
-                // Simular progreso
+                // Simular progreso de lectura/guardado
                 let progreso = 0;
-                const intervaloProgreso = setInterval(() => {
-                    progreso += Math.random() * 12 + 3;
-                    if (progreso > 90) progreso = 90;
+                const intervalo = setInterval(() => {
+                    progreso += Math.random() * 8 + 2;
+                    if (progreso > 95) progreso = 95;
                     const porcentaje = Math.round(progreso);
                     barraProgreso.style.width = porcentaje + '%';
                     barraProgreso.textContent = porcentaje + '%';
-                    textoProgreso.textContent = 'Guardando... ' + porcentaje + '%';
+                    textoProgreso.textContent = 'Guardando: ' + porcentaje + '% — ' + tamano;
                 }, 150);
 
                 // Guardar en IndexDB
@@ -360,15 +359,15 @@
                     blob: archivo
                 });
 
-                clearInterval(intervaloProgreso);
+                clearInterval(intervalo);
 
-                // Completar
+                // Completado
                 barraProgreso.style.width = '100%';
                 barraProgreso.textContent = '✓ 100%';
                 barraProgreso.style.background = '#00c853';
                 textoProgreso.textContent = '¡Subido correctamente!';
 
-                // Guardar referencia
+                // Agregar a la lista
                 estado.canales[indice].archivos.push({
                     dbId: dbId,
                     nombre: archivo.name,
@@ -382,13 +381,13 @@
                 await guardarEstadoDB();
                 compartirEnRed();
 
-                // Refrescar lista
+                // Refrescar después de 1 segundo
                 setTimeout(() => {
                     renderizarTodo();
                 }, 1000);
 
             } catch (error) {
-                console.error('❌ Error al subir:', error);
+                console.error('Error:', error);
                 barraProgreso.style.width = '100%';
                 barraProgreso.textContent = 'Error';
                 barraProgreso.style.background = '#ff4444';
@@ -399,13 +398,51 @@
             btnSubir.style.opacity = '1';
         });
 
-        // Eliminar, marcar aviso, iniciar, reiniciar
+        // Acciones de botones
         tarjeta.addEventListener('click', async (e) => {
             if (!e.target) return;
+            const target = e.target.closest('button');
+            if (!target) return;
 
-            const eliminarBtn = e.target.closest('.btn-eliminar');
-            if (eliminarBtn) {
-                const idx = parseInt(eliminarBtn.dataset.archivo);
+            // Iniciar Canal
+            if (target.classList.contains('btn-iniciar-canal')) {
+                estado.canales[indice].enEmision = true;
+                estado.canales[indice].horaInicio = new Date().toISOString();
+                await guardarEstadoDB();
+                compartirEnRed();
+                renderizarTodo();
+            }
+
+            // Detener Canal
+            if (target.classList.contains('btn-detener-canal')) {
+                estado.canales[indice].enEmision = false;
+                estado.canales[indice].horaInicio = null;
+                await guardarEstadoDB();
+                compartirEnRed();
+                renderizarTodo();
+            }
+
+            // Cerrar Canal — BORRA TODO
+            if (target.classList.contains('btn-cerrar-canal')) {
+                if (confirm('¿Seguro que quieres CERRAR este canal? Se eliminarán TODOS los videos y no se puede deshacer.')) {
+                    // Eliminar todos los archivos de este canal de IndexDB
+                    for (const arch of estado.canales[indice].archivos) {
+                        if (arch.dbId) await eliminarArchivoDB(arch.dbId);
+                    }
+                    // Reiniciar el canal
+                    estado.canales[indice].archivos = [];
+                    estado.canales[indice].enEmision = false;
+                    estado.canales[indice].horaInicio = null;
+                    estado.canales[indice].indiceAviso = null;
+                    await guardarEstadoDB();
+                    compartirEnRed();
+                    renderizarTodo();
+                }
+            }
+
+            // Eliminar archivo individual
+            if (target.classList.contains('btn-eliminar')) {
+                const idx = parseInt(target.dataset.archivo);
                 const arch = estado.canales[indice].archivos[idx];
                 if (arch && arch.dbId) await eliminarArchivoDB(arch.dbId);
                 estado.canales[indice].archivos.splice(idx, 1);
@@ -417,31 +454,13 @@
                 renderizarTodo();
             }
 
-            const estrellaBtn = e.target.closest('.btn-marcar-aviso');
-            if (estrellaBtn) {
-                estado.canales[indice].indiceAviso = parseInt(estrellaBtn.dataset.idx);
+            // Marcar como aviso
+            if (target.classList.contains('btn-marcar-aviso')) {
+                const idx = parseInt(target.dataset.idx);
+                estado.canales[indice].indiceAviso = estado.canales[indice].indiceAviso === idx ? null : idx;
                 await guardarEstadoDB();
                 compartirEnRed();
                 renderizarTodo();
-            }
-
-            const iniciarBtn = e.target.closest('.btn-iniciar-canal');
-            if (iniciarBtn) {
-                estado.canales[indice].horaInicio = new Date().toISOString();
-                estado.canales[indice].enEmision = true;
-                await guardarEstadoDB();
-                compartirEnRed();
-                alert('Canal ' + (indice + 1) + ' INICIADO');
-            }
-
-            const reiniciarBtn = e.target.closest('.btn-reiniciar-canal');
-            if (reiniciarBtn) {
-                if (confirm('¿Reiniciar la emisión?')) {
-                    estado.canales[indice].horaInicio = new Date().toISOString();
-                    estado.canales[indice].enEmision = true;
-                    await guardarEstadoDB();
-                    compartirEnRed();
-                }
             }
         });
     }
